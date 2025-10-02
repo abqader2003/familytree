@@ -4,7 +4,7 @@ import { readFile, writeFile, existsSync } from "fs";
 import { resolve } from "path";
 import bcrypt from "bcryptjs";
 import { promisify } from "util";
-
+import { log } from "./vite"; // Assuming log is imported from vite.ts
 // Re-using the Person interface from Home.tsx mock for consistency in storage implementation
 // Note: In a real app, this should come from shared/schema.ts
 export interface Person {
@@ -34,7 +34,7 @@ interface DataStore {
 // Data file path
 const DATA_FILE = resolve(import.meta.dirname, "data.json");
 const SALT_ROUNDS = 10;
-
+const IS_PROD_READONLY = process.env.NODE_ENV === "production"; // New environment check
 // Promisify file system functions
 const read = promisify(readFile);
 const write = promisify(writeFile);
@@ -82,7 +82,30 @@ export class MemStorage implements IStorage {
     }
   }
 
+
+ // MODIFIED: Skip writing in production environment
+  public async saveData(): Promise<void> {
+    if (IS_PROD_READONLY) {
+        log("Skipping data save in read-only (production) environment.", "storage");
+        return;
+    }
+    // Note: The actual implementation of saving logic (e.g., in updatePerson) must also be checked 
+    // to prevent crashes, but Vercel requires the app to at least start.
+    await write(DATA_FILE, JSON.stringify(this.data, null, 2));
+    log(`Saved data to ${DATA_FILE}`, "storage");
+  }
+
+  // MODIFIED: Ensure seeding runs in production without attempting to save to disk
   private async loadData(): Promise<void> {
+    if (IS_PROD_READONLY) {
+      // في بيئة Vercel (الإنتاج)، نقوم بالتحميل دائمًا من البيانات الأولية المضمنة في الكود
+      // لأن نظام الملفات للقراءة فقط ولا يمكن الاعتماد على persistence.
+      log("Loading data from hardcoded seed in production environment.", "storage");
+      await this.initSeedData();
+      return;
+    }
+    
+    // في بيئة التطوير المحلية، نحاول تحميل الملف الموجود، وإذا لم يوجد، نقوم بإنشاء البيانات الأولية وحفظها.
     if (existsSync(DATA_FILE)) {
       try {
         const fileContent = await read(DATA_FILE, "utf-8");
@@ -91,16 +114,13 @@ export class MemStorage implements IStorage {
       } catch (error) {
         log(`Error loading data, initializing with seed: ${error}`, "storage");
         await this.initSeedData();
+        await this.saveData();
       }
     } else {
       log("Data file not found, initializing with seed data", "storage");
       await this.initSeedData();
+      await this.saveData();
     }
-  }
-  
-  public async saveData(): Promise<void> {
-    await write(DATA_FILE, JSON.stringify(this.data, null, 2));
-    log(`Saved data to ${DATA_FILE}`, "storage");
   }
 
   private async initSeedData() {
