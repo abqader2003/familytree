@@ -68,11 +68,13 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(import.meta.dirname, "public");
+  // استخدام process.cwd() هو الطريقة الأكثر موثوقية للإشارة إلى جذر حزمة الدالة 
+  // (lambda function bundle root) في بيئة Vercel، حيث يتوقع وجود مجلد 'public'.
+  const distPath = path.resolve(process.cwd(), "public");
 
   if (!fs.existsSync(distPath)) {
     throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`,
+      `Could not find the build directory at expected path: ${distPath}, make sure to build the client first and check vercel.json includes "dist/public/**".`,
     );
   }
 
