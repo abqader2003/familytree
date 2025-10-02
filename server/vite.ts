@@ -1,12 +1,17 @@
 import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url"; // سنضيف هذا الـ import للضرورة
 import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
 import viteConfig from "../vite.config";
 import { nanoid } from "nanoid";
 
 const viteLogger = createLogger();
+
+// تعريف __dirname بشكل صحيح لبيئة ES Module
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -67,14 +72,19 @@ export async function setupVite(app: Express, server: Server) {
   });
 }
 
+
 export function serveStatic(app: Express) {
-  // استخدام process.cwd() هو الطريقة الأكثر موثوقية للإشارة إلى جذر حزمة الدالة 
-  // (lambda function bundle root) في بيئة Vercel، حيث يتوقع وجود مجلد 'public'.
-  const distPath = path.resolve(process.cwd(), "public");
+  // استخدام path.join مع المسار المطلق لنقطة الدخول (التي تكون عادةً في dist/index.js)
+  // ونعود خطوة للخلف للوصول إلى public.
+  // في Vercel، كل شيء يكون مدمجًا، لذا يجب أن يكون المسار من نقطة البناء.
+  
+  // path.join(__dirname, "public") تشير إلى: (dist/) + public
+  const distPath = path.join(__dirname, "public");
 
   if (!fs.existsSync(distPath)) {
+    // يجب أن يكون هذا الخطأ فقط إذا لم يتم البناء بشكل صحيح
     throw new Error(
-      `Could not find the build directory at expected path: ${distPath}, make sure to build the client first and check vercel.json includes "dist/public/**".`,
+      `Could not find the build directory at expected path: ${distPath}, make sure to build the client first (check if dist/public exists locally).`,
     );
   }
 
@@ -82,6 +92,6 @@ export function serveStatic(app: Express) {
 
   // fall through to index.html if the file doesn't exist
   app.use("*", (_req, res) => {
-    res.sendFile(path.resolve(distPath, "index.html"));
+    res.sendFile(path.join(distPath, "index.html")); // استخدام path.join لـ index.html أيضًا
   });
 }
