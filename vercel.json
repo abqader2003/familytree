@@ -1,0 +1,28 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      // تحديد ملف المدخل للخادم (Express server)
+      "src": "server/index.ts",
+      "use": "@vercel/node",
+      "config": {
+        // تضمين ملفات الواجهة الأمامية الثابتة وملف بيانات الـ Mock
+        // في حزمة دالة الخادم (Serverless Function) لكي يتمكن الخادم من خدمتها
+        "includeFiles": [
+          "dist/public/**",
+          "server/data.json" 
+        ]
+      }
+    }
+  ],
+  "routes": [
+    {
+      // توجيه كل حركة المرور (بما في ذلك المسار الأساسي /) إلى دالة الخادم
+      "src": "/(.*)",
+      "dest": "server/index.ts"
+    }
+  ],
+  // التأكد من أن Vercel يستخدم أوامر التثبيت والبناء الصحيحة
+  "installCommand": "npm install",
+  "buildCommand": "npm run build"
+}
